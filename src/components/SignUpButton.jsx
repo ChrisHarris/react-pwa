@@ -44,8 +44,7 @@ export default function SignUpButton({ onAuthenticated }) {
 
   return (
     <div>
-      {/* WebAwesome button – assumes WA is loaded globally in index.html */}
-      <wa-button onClick={handlePress} disabled={busy}>
+      <wa-button type="button" onClick={handlePress} disabled={busy} variant="primary">
         {busy ? "Working..." : label}
       </wa-button>
 
