@@ -1,4 +1,9 @@
-const CACHE_NAME = "pwa-runtime-cache-v1";
+const CACHE_NAME = "pwa-runtime-cache-v2";
+const OFFLINE_FALLBACK = new Response("Offline", {
+  status: 503,
+  statusText: "Offline",
+  headers: { "Content-Type": "text/plain" },
+});
 
 self.addEventListener("install", (event) => {
   // Activate immediately after install.
@@ -20,23 +25,44 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const { request } = event;
 
-  // Only cache GET requests; skip other methods.
   if (request.method !== "GET") {
     return;
   }
 
-  // Network-first with cache fallback for runtime assets.
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      const fetchPromise = fetch(request)
-        .then((response) => {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, responseClone));
-          return response;
-        })
-        .catch(() => cached);
+  // For navigation requests, keep an offline copy of the shell (index.html).
+  if (request.mode === "navigate") {
+    event.respondWith(handleNavigation(request));
+    return;
+  }
 
-      return cached || fetchPromise;
-    })
-  );
+  event.respondWith(handleRequest(request));
 });
+
+async function handleNavigation(request) {
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(request, { ignoreSearch: true });
+
+  try {
+    const network = await fetch(request);
+    cache.put(request, network.clone());
+    return network;
+  } catch {
+    return cached || OFFLINE_FALLBACK;
+  }
+}
+
+async function handleRequest(request) {
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(request);
+
+  try {
+    const network = await fetch(request);
+    // Ignore opaque cross-origin responses that can't be cached safely.
+    if (network && network.type !== "opaque") {
+      cache.put(request, network.clone());
+    }
+    return network;
+  } catch {
+    return cached || OFFLINE_FALLBACK;
+  }
+}
