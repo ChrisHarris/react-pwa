@@ -1,9 +1,12 @@
-const CACHE_NAME = "pwa-runtime-cache-v2";
-const OFFLINE_FALLBACK = new Response("Offline", {
-  status: 503,
-  statusText: "Offline",
-  headers: { "Content-Type": "text/plain" },
-});
+const CACHE_NAME = "pwa-runtime-cache-v3";
+
+function offlineResponse() {
+  return new Response("Offline", {
+    status: 503,
+    statusText: "Offline",
+    headers: { "Content-Type": "text/plain" },
+  });
+}
 
 self.addEventListener("install", (event) => {
   // Activate immediately after install.
@@ -47,7 +50,7 @@ async function handleNavigation(request) {
     cache.put(request, network.clone());
     return network;
   } catch {
-    return cached || OFFLINE_FALLBACK;
+    return cached ? cached.clone() : offlineResponse();
   }
 }
 
@@ -63,6 +66,6 @@ async function handleRequest(request) {
     }
     return network;
   } catch {
-    return cached || OFFLINE_FALLBACK;
+    return cached ? cached.clone() : offlineResponse();
   }
 }
